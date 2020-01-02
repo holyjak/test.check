@@ -418,18 +418,23 @@
 
 (defn- such-that-helper
   [pred gen {:keys [ex-fn max-tries]} rng size]
-  (loop [tries-left max-tries
-         rng rng
-         size size
-         failed-value nil]
+  {:pre [(pos? max-tries)]}
+  (loop [tries-left     max-tries
+         rng            rng
+         size           size
+         failed-example nil]
     (if (zero? tries-left)
-      (throw (ex-fn {:pred pred, :gen, gen :max-tries max-tries, :failed-value failed-value}))
+      (throw (ex-fn {:pred pred, :gen, gen :max-tries max-tries, :example failed-example}))
       (core/let [[r1 r2] (random/split rng)
                  value (call-gen gen r1 size)
                  root (rose/root value)]
         (if (pred root)
           (rose/filter pred value)
-          (recur (dec tries-left) r2 (inc size) (or failed-value root))))))
+          (recur
+            (dec tries-left)
+            r2
+            (inc size)
+            (if (= tries-left max-tries) root failed-example)))))))
 
 (def ^:private
   default-such-that-opts
@@ -460,8 +465,8 @@
       :max-tries  positive integer, the maximum number of tries (default 10)
       :ex-fn      a function of one arg that will be called if test.check cannot
                   generate a matching value; it will be passed a map with `:gen`,
-                  `:pred`, `:max-tries`, and `failed-value` and should return an
-                  exception"
+                  `:pred`, `:max-tries`, and `:example` (of a value that failed
+                  to satisfy the predicate) and should return an exception"
   ([pred gen]
    (such-that pred gen 10))
   ([pred gen max-tries-or-opts]
