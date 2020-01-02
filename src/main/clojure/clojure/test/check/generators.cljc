@@ -420,14 +420,16 @@
   [pred gen {:keys [ex-fn max-tries]} rng size]
   (loop [tries-left max-tries
          rng rng
-         size size]
+         size size
+         failed-value nil]
     (if (zero? tries-left)
-      (throw (ex-fn {:pred pred, :gen, gen :max-tries max-tries}))
+      (throw (ex-fn {:pred pred, :gen, gen :max-tries max-tries, :failed-value failed-value}))
       (core/let [[r1 r2] (random/split rng)
-                 value (call-gen gen r1 size)]
-        (if (pred (rose/root value))
+                 value (call-gen gen r1 size)
+                 root (rose/root value)]
+        (if (pred root)
           (rose/filter pred value)
-          (recur (dec tries-left) r2 (inc size)))))))
+          (recur (dec tries-left) r2 (inc size) (or failed-value root))))))
 
 (def ^:private
   default-such-that-opts
@@ -458,7 +460,8 @@
       :max-tries  positive integer, the maximum number of tries (default 10)
       :ex-fn      a function of one arg that will be called if test.check cannot
                   generate a matching value; it will be passed a map with `:gen`,
-                  `:pred`, and `:max-tries` and should return an exception"
+                  `:pred`, `:max-tries`, and `failed-value` and should return an
+                  exception"
   ([pred gen]
    (such-that pred gen 10))
   ([pred gen max-tries-or-opts]
